@@ -1,0 +1,159 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>The Test</title>
+<style>
+:root{--bg:#fdf6e3;--fg:#2b2b2b;--card:#fff;--ac:#ff7a59;--line:#d9cfb4;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1b26;--fg:#f1ecff;--card:#2a2736;--ac:#ff8a6b;--line:#443f57}}
+:root[data-theme="dark"]{--bg:#1d1b26;--fg:#f1ecff;--card:#2a2736;--ac:#ff8a6b;--line:#443f57}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Trebuchet MS",system-ui,sans-serif;display:flex;justify-content:center}
+#w{width:100%;max-width:760px;padding:10px}
+h1{margin:4px 0;font-size:24px;text-align:center}
+.hud{display:flex;gap:8px;flex-wrap:wrap;font-size:13px;margin-bottom:6px}
+.hud div{flex:1;min-width:120px;background:var(--card);border:2px solid var(--line);border-radius:10px;padding:4px 8px}
+.bar{height:9px;background:var(--line);border-radius:6px;overflow:hidden;margin-top:3px}.bar i{display:block;height:100%;width:0;background:#4cc38a}
+#sus i{background:#ff5d5d}#bm i{background:#4db8ff}
+#stage{position:relative}
+canvas{width:100%;display:block;border-radius:14px;border:3px solid var(--line);touch-action:manipulation}
+#toast{position:absolute;top:50px;left:50%;transform:translateX(-50%);background:rgba(30,30,30,.88);color:#fff;padding:6px 12px;border-radius:20px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;text-align:center;max-width:90%}
+#dlg{position:absolute;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;border-radius:14px;padding:12px}
+#box{background:var(--card);border:3px solid var(--ac);border-radius:16px;padding:14px;max-width:460px;width:100%}
+#box h2{margin:0 0 6px;font-size:18px}#box p{margin:0 0 10px;line-height:1.4}
+#box button,.m button{display:block;width:100%;margin:6px 0;padding:10px;border-radius:10px;border:2px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;cursor:pointer}
+#box button:hover{border-color:var(--ac)}
+.m{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.m button{margin:0;flex:1;font-size:13px;user-select:none;-webkit-user-select:none;touch-action:none}
+.m button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+small{display:block;text-align:center;opacity:.75;margin-top:6px}
+</style></head><body><div id="w">
+<h1>📝 The Test</h1>
+<div class="hud"><div>Answers <b id="pt"></b><div class="bar"><i id="pb"></i></div></div><div>⏱ <b id="tm"></b> · <span id="st"></span></div><div id="sus">Mr. Grumbles is suspicious<div class="bar"><i id="sb"></i></div></div><div id="bm">🚽 Need to pee<div class="bar"><i id="bb"></i></div></div></div>
+<div id="stage"><canvas id="c" width="720" height="480"></canvas><div id="toast"></div><div id="dlg"><div id="box"></div></div></div>
+<div class="m"><button id="b1">1 · Peek 👀<br><span id="r1">free</span></button><button id="b2">2 · Cheat sheet 📝<br><span id="r2"></span></button><button id="b3">3 · Phone 📱<br><span id="r3"></span></button><button id="b4">4 · Bathroom 🚽<br><span id="r4">ask for a pass</span></button><button id="b5">5 · Friends 🤝<br><span id="r5">ask for help</span></button></div>
+<small>Hold a button (or keys 1 · 2 · 3) to cheat. Click a kid to snitch, but only on a real cheater. Press 4 to ask for the bathroom.</small>
+</div>
+<script>
+const $=id=>document.getElementById(id),cv=$('c'),g=cv.getContext('2d');
+const R=(a,b)=>a+Math.random()*(b-a);
+const XS=[55,205,355,505,655],YS=[70,187,302,415];
+const DX=c=>130+c*150,DY=r=>130+r*115;
+const roster={0:['Oliver',8,1],1:['Zoe',16,0,1],2:['Priya',7,1],3:['Tommy',10,1,1],4:['Lena',12,0],5:['Max',9,1],6:['Ruby',11,1],7:['Sam',6,1],8:['Mia',16,0],10:['Jake',9,1],11:['Noah',13,0,1]};
+const skins=['#f6d2b0','#e0a97a','#c68a5c','#8d5a3b','#f1c7a0'],hairs=['#3b2a1e','#111','#c8892b','#7a3b1e','#d9534f'],shirts=['#5b8def','#f2a65a','#7bc67e','#c47fe0','#ef6f6f','#4fc3c9'];
+let S,P,T,K,C,keyM=0;
+function init(){
+ K=[];let n=0;for(let i=0;i<12;i++){if(i==9)continue;const d=roster[i];K.push({n:d[0],x:DX(i%4),y:DY(Math.floor(i/4)),rate:d[1],cheater:!!d[2],enemy:!!d[3],friend:['Mia','Sam','Lena'].includes(d[0]),lie:R(10,25),cheating:false,ct:R(2,6),snitch:0,hand:false,out:0,skin:skins[n%5],hair:hairs[(n*3)%5],shirt:shirts[n%6]});n++}
+ P={x:DX(1),y:DY(2),prog:0,det:0,sheet:100,phone:100,m:0,pee:0,away:0};
+ S={mode:'menu',time:800,retry:0,sus:0,cd:0,t:0,toastT:0,acc:null,wasC:false,snitched:0,fcd:{}};
+ resetT();
+ intro();
+}
+function resetT(){T={x:XS[0],y:YS[0],ang:0,ni:1,nj:0,pi:0,pj:0,pause:1,turn:0,mode:'patrol',kid:null}}
+function nearestNode(){let b=0,bi=0,bj=0,bd=1e9;XS.forEach((x,i)=>YS.forEach((y,j)=>{const d=Math.hypot(x-T.x,y-T.y);if(d<bd){bd=d;bi=i;bj=j}}));T.pi=T.ni=bi;T.pj=T.nj=bj}
+function nextNode(){const o=[[1,0],[-1,0],[0,1],[0,-1]].map(d=>[T.ni+d[0],T.nj+d[1]]).filter(p=>p[0]>=0&&p[0]<5&&p[1]>=0&&p[1]<4);let c=o.filter(p=>!(p[0]==T.pi&&p[1]==T.pj));if(!c.length)c=o;const p=c[Math.floor(Math.random()*c.length)];T.pi=T.ni;T.pj=T.nj;T.ni=p[0];T.nj=p[1]}
+function toast(t,s=2.6){const e=$('toast');e.textContent=t;e.style.opacity=1;S.toastT=s}
+function ask(title,text,opts,n,x){if(n)opts=opts.slice().sort(()=>Math.random()-.5).slice(0,n);if(x)opts=opts.concat(x);S.mode='dialog';const b=$('box');b.innerHTML='<h2></h2><p></p>';b.children[0].textContent=title;b.children[1].textContent=text;opts.forEach(o=>{const x=document.createElement('button');x.textContent=o[0];x.onclick=()=>{$('dlg').style.display='none';o[1]()};b.appendChild(x)});$('dlg').style.display='flex'}
+function intro(){ask('📝 The Test','Big math test. You didn’t study. Mr. Grumbles patrols the room, and your classmates love drama. Answer all 50 questions within 800 seconds. Peek, use a cheat sheet or a phone, but don’t get caught. If a kid snitches, talk your way out (or frame them). Click a kid to snitch, but ONLY on a real cheater (a 📄 shows above them) or Mr. Grumbles gets suspicious of YOU. If he catches you cheating, it’s straight to the principal’s office. Your excuses are random every time, so you can’t rely on one trick. Kids marked 🤝 (Mia, Sam, Lena) are friends: press 5 to ask for answers, or ask them to vouch for you when you’re in trouble. If you lose, you can try to run away from school. Kids marked 😠 are your enemies: they snitch 50% faster and sometimes lie about you. Get snitched on 3 times and you’re sent to the principal. Watch your bathroom meter too: you can ask for a pass (key 4) once you really need to go, but you leave your desk and your cheat stuff behind.',[['Start the test',()=>{S.mode='play'}]])}
+function end(win,msg){S.mode='end';const grade=win?(S.retry?'C+':S.time>400?'A+':'B+'):'F';ask(win?'🎉 Test submitted! Grade: '+grade:'💀 Game over',msg,[['Play again',()=>{init()}]].concat(win?[]:[['🏃 Run away from school',runaway]]))}
+function caught(why){if(S.mode=='dialog'||S.mode=='end')return;if(S.retry>=1){end(false,why+' Since you were already caught once, you’re expelled. Pack your backpack.');return}principal(why)}
+function principal(why){S.mode='dialog';let sc=0;const rounds=[
+['Dr. Stern: “Cheating? On MY watch? Why should I let you retake this test?”',[['“I was so nervous my brain froze.”',.6],['“That test was totally unfair!”',.25],['“I’ll do extra credit. Please.”',.75],['“My dog ate my study guide.”',.15],['“I’ll start studying every night.”',.65]]],
+['Dr. Stern: “Be honest. Did you cheat?”',[['“Yes… I peeked once. I’m really sorry.”',.7],['“Never! I would NEVER!”',.2],['“Everybody does it!”',.12],['“Define cheating, sir.”',.1],['“I panicked and made a bad choice.”',.65]]],
+['Dr. Stern: “Why should I trust you?”',[['“One more chance. You won’t regret it.”',.6],['“My mom will be so disappointed.”',.5],['“I’ll clean chalkboards for a month.”',.7],['“I’ll tutor other students.”',.6],['“You can call my parents.”',.4]]]];
+let i=0;const step=()=>{if(i>=3){if(sc>=2){S.retry=1;P.prog=0;P.det=0;P.sheet=100;P.phone=100;P.pee=0;P.away=0;S.time=800;S.sus=0;S.snitched=0;K.forEach(k=>{k.snitch=0;k.hand=false;k.out=0;k.fake=false});resetT();T.pause=2;ask('Dr. Stern sighs…','“Fine. ONE retake. Mr. Grumbles will be watching closely.” The teacher is now faster. Caught again and you’re expelled.',[['Back to class',()=>{S.mode='play'}]])}else end(false,'Dr. Stern: “Denied. Detention for a month.” Your parents are called.');return}
+ const r=rounds[i];ask('🏫 Principal’s Office',(i?'':why+' You’re sent to the office. ')+r[0],r[1].map(o=>[o[0],()=>{if(Math.random()<o[1]+.12){sc++;toast('Dr. Stern raises an eyebrow… that worked!')}else toast('Dr. Stern frowns…');i++;setTimeout(step,300)}]),3)};step()}
+function accuse(){const k=S.acc;S.wasC=P.m>0&&!!S.cheatingNow;const w=S.wasC;const lie=k.fake&&!w;if(!lie)S.snitched++;
+ if(!lie&&S.snitched>=3){k.hand=false;k.snitch=0;ask('🚨 Snitched on 3 times!','Mr. Grumbles: “That’s '+k.n+' now. Three complaints about you in one test. Principal’s office. NOW.”',[['Walk of shame…',()=>{S.mode='play';caught('Three snitches in one test.')}]]);return}
+ ask('😬 '+k.n+(lie?' is lying! (not a snitch strike)':' snitched! ('+S.snitched+'/3)'),'Mr. Grumbles marches over: “'+k.n+' says you’re cheating. Explain.”'+(k.fake&&!w?' (You weren’t even cheating this time!)':''),[
+ ['“They’re lying! Why would I cheat?”',()=>res(w?.22:k.fake?.7:.55,'Mr. Grumbles squints… “Hmm. Fine.”')],
+ ['“Check THEIR desk! '+k.n+' is the cheater!”',()=>res(k.cheater?.8:.15,k.cheater?'Mr. Grumbles finds a cheat sheet in '+k.n+'’s desk. Out they go!':'Nothing in their desk. Awkward.',true)],
+ ['“I’m confused… what’s cheating?”',()=>res(w?.2:.4,'Mr. Grumbles pinches his nose.')],
+ ['Cry dramatically 😭',()=>res(.3,'Mr. Grumbles panics at the sobbing and backs away.')],
+ ['“I swear on my pencil case.”',()=>res(.3,'Mr. Grumbles sighs. “Fine, fine.”')],
+ ['“Look, my desk is totally empty!”',()=>res((P.sheet<70||P.phone<70)?.15:.7,'Mr. Grumbles checks your desk. Clean!')],
+ ['“'+k.n+' is just mad at me!”',()=>res(k.enemy?.65:.3,'Mr. Grumbles remembers that feud.')],
+ ['“Ask the class, I’m a good student!”',()=>res(.35,'Mr. Grumbles shrugs. “You do usually behave.”')],
+ ['Pretend to faint 😵',()=>res(.3,'Mr. Grumbles panics and fans you with a worksheet.')]],3,frOpt((f,ok)=>res(ok?1:0,ok?f.n+' speaks up: “They were working all test!”':f.n+' stammers and makes it worse…')))}
+function res(p,msg,frame){const k=S.acc,ok=Math.random()<p+.12;k.hand=false;k.snitch=0;k.fake=false;if(ok){if(frame&&k.cheater){k.out=30;k.cheating=false}toast(msg,3);S.mode='play';T.mode='patrol';T.pause=1.5;nearestNode()}else{toast(msg+' Not convinced…',2);hall(k)}}
+function hall(k){const used=P.sheet<70||P.phone<70,w=S.wasC;const f=(p,ok)=>()=>{if(Math.random()<p+.12){toast(ok,3);S.mode='play';T.mode='patrol';T.pause=2;S.sus=15;nearestNode()}else{toast('Mr. Grumbles shakes his head…',2);S.mode='play';caught('Mr. Grumbles pulled you into the hall and still didn’t believe you.')}};
+ ask('🚪 Out in the hall','Mr. Grumbles pulls you out of class by the sleeve. “I’m not convinced. Let’s talk, just you and me.”',[
+ ['“I swear I wasn’t cheating. I’m just stressed.”',f(w?.25:.5,'“Fine. Back to your seat. I’m watching you.”')],
+ ['“Search me! Empty my pockets!”',f(used?.15:.8,'He finds nothing and sends you back to your seat.')],
+ ['“Please, no principal. I’ll never do it again.”',f(.4,'“Last warning. Sit.”')],
+ ['“It was my evil twin. I swear.”',f(.15,'“I don’t know why I believe that. Sit.”')],
+ ['“Call my mom, she’ll vouch for me.”',f(.35,'“I’ll let it slide this once.”')],
+ ['“I’ll tell you who’s REALLY cheating.”',f(.55,'“…Thank you. Back to your seat.”')],
+ ['“I’ll stay after class and help clean.”',f(.45,'“Deal. Now sit.”')]],3,frOpt((fr,ok)=>f(ok?1:0,fr.n+' backs you up in the hall!')()))}
+function holdM(m){keyM=m}
+function bathroom(){if(S.mode!='play'||P.away>0)return;if(T.mode!='patrol'||S.sus>0||P.det>20){toast('Mr. Grumbles: “Not right now. Sit down.”');return}if(P.pee<25){toast('Mr. Grumbles: “You don’t need to go. Sit.”');return}P.away=6;toast('Mr. Grumbles: “Make it quick.” 🚽',2.5)}
+$('b4').onclick=bathroom;$('b5').onclick=friends;
+function frOpt(cb){const f=K.find(k=>k.friend&&!k.out&&!(S.fcd[k.n]>0));if(!f)return[];return[['🤝 Ask '+f.n+' to vouch for you',()=>{S.fcd[f.n]=40;cb(f,Math.random()<.8)}]]}
+function friends(){if(S.mode!='play'||P.away>0)return;const av=K.filter(k=>k.friend&&!k.out&&!(S.fcd[k.n]>0));if(!av.length){toast('Your friends are busy or out of the room.');return}
+ ask('🤝 Ask a friend','Who do you ask for answers? Friends sometimes say no, and whispering can get noticed.',av.map(f=>[f.n,()=>{S.mode='play';S.fcd[f.n]=25;if(Math.random()<.8){P.prog=Math.min(100,P.prog+6);P.det=Math.min(95,P.det+12);toast(f.n+' slides you the answers 📝')}else toast(f.n+': “No way, I’m not getting in trouble.”')}]).concat([['Never mind',()=>{S.mode='play'}]]))}
+function runaway(){ask('🏃 Run away!','Big Dave the security guard is after you! Reach the EXIT on the left wall. Use WASD or the arrow keys (on a phone, drag your finger). Desks block you both, so use the aisles. Don’t let him touch you!',[['GO!',startChase]])}
+function startChase(){P.m=0;keyM=0;C={x:P.x,y:350,g:{x:355,y:187},delay:1.2,ptr:null};S.mode='chase'}
+const KS={};addEventListener('keydown',e=>{KS[e.key.toLowerCase()]=1;if(S&&S.mode=='chase'&&e.key.startsWith('Arrow'))e.preventDefault()});addEventListener('keyup',e=>{KS[e.key.toLowerCase()]=0});
+const setPtr=e=>{const r=cv.getBoundingClientRect();C.ptr={x:(e.clientX-r.left)*720/r.width,y:(e.clientY-r.top)*480/r.height}};
+cv.addEventListener('pointerdown',e=>{if(S.mode=='chase')setPtr(e)});cv.addEventListener('pointermove',e=>{if(S.mode=='chase'&&e.buttons)setPtr(e)});addEventListener('pointerup',()=>{if(C)C.ptr=null});
+function blocked(x,y,r){if(x<r||x>720-r||y<46+r||y>480-r)return true;for(let i=0;i<12;i++){const dx=DX(i%4),dy=DY(Math.floor(i/4));if(x>dx-34-r&&x<dx+34+r&&y>dy+12-r&&y<dy+44+r)return true}return false}
+function mv(o,vx,vy,r){if(!blocked(o.x+vx,o.y,r))o.x+=vx;if(!blocked(o.x,o.y+vy,r))o.y+=vy}
+function chase(dt){let dx=((KS.d||KS.arrowright)?1:0)-((KS.a||KS.arrowleft)?1:0),dy=((KS.s||KS.arrowdown)?1:0)-((KS.w||KS.arrowup)?1:0);
+ if(C.ptr&&!dx&&!dy){const ax=C.ptr.x-C.x,ay=C.ptr.y-C.y,d=Math.hypot(ax,ay);if(d>8){dx=ax/d;dy=ay/d}}
+ const l=Math.hypot(dx,dy);if(l)mv(C,dx/l*160*dt,dy/l*160*dt,11);
+ if(C.x<18&&Math.abs(C.y-240)<45){S.mode='dialog';ask('🌅 You escaped!','You burst through the exit and sprint down the street. You’re free… until tomorrow. Ending: The Runaway.',[['Play again',()=>{init()}]]);return}
+ if(C.delay>0){C.delay-=dt;return}
+ const ax=C.x-C.g.x,ay=C.y-C.g.y,d=Math.hypot(ax,ay);
+ if(d<22){S.mode='dialog';ask('🚔 Caught!','Big Dave grabs your backpack. “Where do you think you’re going?” Your parents are called.',[['Try running again',startChase],['Play again',()=>{init()}]]);return}
+ mv(C.g,ax/d*110*dt,ay/d*110*dt,12)}
+function drawChase(){g.fillStyle='#8b5a2b';g.fillRect(0,205,16,70);g.fillStyle='#fff';g.font='bold 12px Trebuchet MS';g.textAlign='left';g.fillText('EXIT',20,244);
+ person(C.g.x,C.g.y,'#c9a27a','#222','#2b4a8b','Big Dave');g.fillStyle='#1f3a6b';g.fillRect(C.g.x-12,C.g.y-30,24,6);
+ person(C.x,C.y,'#f6d2b0','#222','#ff7a59','YOU');g.fillStyle='#e22';g.font='bold 15px Trebuchet MS';g.textAlign='center';g.fillText(C.delay>0?'GET READY…':'RUN! Reach the EXIT ←',360,64)}
+function runawayOld(){const O=[['Sneak out the back door',.5,'You slip past the cafeteria and out the back door!'],['Climb the fence',.4,'You scale the fence like a ninja!'],['Hide in the delivery truck',.45,'The truck driver never notices you.'],['Blend into the crowd at the buses',.55,'You walk off with the bus crowd.'],['Pretend you have a doctor’s note',.3,'The guard waves you through. Wow.'],['Disguise yourself as the janitor',.35,'Nobody looks twice at the janitor.']];
+ ask('🏃 Run away!','You grab your backpack and bolt. How do you escape?',O.map(o=>[o[0],()=>{if(Math.random()<o[1])ask('🌅 You escaped!',o[2]+' You’re free… until tomorrow. Ending: The Runaway.',[['Play again',()=>{init()}]]);else ask('🚔 Caught!','Security guard Big Dave grabs your backpack. “Where do you think you’re going?” Your parents are called.',[['Play again',()=>{init()}]])}]),3)}
+[1,2,3].forEach(m=>{const b=$('b'+m);b.addEventListener('pointerdown',e=>{e.preventDefault();holdM(m)});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>{if(keyM==m)holdM(0)}))});
+addEventListener('keydown',e=>{if('123'.includes(e.key)&&e.key)holdM(+e.key);if(e.key=='4')bathroom();if(e.key=='5')friends()});addEventListener('keyup',e=>{if(keyM==+e.key)holdM(0)});
+cv.addEventListener('pointerdown',e=>{if(S.mode!='play'||T.mode!='patrol')return;const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)*720/r.width,y=(e.clientY-r.top)*480/r.height;const k=K.find(k=>!k.out&&Math.hypot(k.x-x,k.y-y+10)<34);if(!k)return;if(S.cd>0){toast('Wait a bit before snitching again…',1.5);return}T.mode='snitch';T.kid=k;S.cd=10;toast('You raise your hand: “'+k.n+' is cheating!”')});
+function tmove(tx,ty,sp,dt){const dx=tx-T.x,dy=ty-T.y,d=Math.hypot(dx,dy);if(d<4)return true;T.ang=Math.atan2(dy,dx);const s=Math.min(sp*dt,d);T.x+=dx/d*s;T.y+=dy/d*s;return false}
+function update(dt){S.t+=dt;if(S.toastT>0){S.toastT-=dt;if(S.toastT<=0)$('toast').style.opacity=0}
+ if(S.mode=='chase'){chase(dt);return}if(S.mode!='play')return;
+ S.time-=dt;S.cd=Math.max(0,S.cd-dt);for(const n in S.fcd)S.fcd[n]-=dt;S.sus=Math.max(0,S.sus-dt);
+ if(P.away>0){P.away-=dt;P.pee=0;if(P.away<=0){toast('You’re back at your desk.');if((P.sheet<70||P.phone<70)&&Math.random()<.3){caught('Mr. Grumbles found your cheat stuff while you were gone!');return}}}else P.pee=Math.min(100,P.pee+.4*dt);
+ let m=P.away>0?0:keyM;if(m==1&&K.every(k=>(k.n!='Mia'&&k.n!='Jake')||k.out)){m=0}
+ if(m==2&&P.sheet<=0)m=0;if(m==3&&P.phone<=0)m=0;
+ if(T.mode=='summon')m=m;P.m=m;S.cheatingNow=m>0;
+ if(m==1)P.prog+=.9*dt;else if(m==2){P.prog+=1.6*dt;P.sheet-=3.3*dt}else if(m==3){P.prog+=2.4*dt;P.phone-=3*dt}else P.prog+=.06*dt;
+ const sp=50+S.retry*10;
+ if(T.mode=='patrol'){const h=P.away>0?null:K.find(k=>k.hand);if(h){T.mode='summon';S.acc=h}
+  else if(T.pause>0){T.pause-=dt;T.ang+=T.turn*dt}else if(tmove(XS[T.ni],YS[T.nj],sp,dt)){T.pause=R(.4,1.3);T.turn=R(-2.2,2.2);nextNode()}}
+ else if(T.mode=='summon'){if(tmove(P.x,P.y-48,120,dt)&&P.away<=0){accuse();return}}
+ else if(T.mode=='snitch'){const k=T.kid;if(tmove(k.x,k.y-48,110,dt)){if(k.cheating){k.out=25;k.cheating=false;k.snitch=0;k.hand=false;toast('Busted! '+k.n+' was cheating and got sent out!',3)}else{S.sus=14;toast('False alarm… Mr. Grumbles now watches YOU.',3)}T.mode='patrol';T.pause=1.5;nearestNode()}}
+ const dx=P.x-T.x,dy=P.y-T.y,d=Math.hypot(dx,dy);let df=Math.abs(((Math.atan2(dy,dx)-T.ang+Math.PI*3)%(Math.PI*2))-Math.PI);
+ const range=150*[1,1,.55,1.25][m]*(S.sus>0?1.35:1);
+ const seen=m>0&&d<range&&df<.6&&T.mode!='summon';
+ P.det=Math.max(0,Math.min(100,P.det+(seen?45:-35)*dt));
+ K.forEach(k=>{if(k.out>0){k.out-=dt;if(k.out<=0)k.cheating=false;return}
+  if(k.cheater){k.ct-=dt;if(k.ct<=0){k.cheating=!k.cheating;k.ct=k.cheating?R(3,5):R(3,6)}}
+  if(k.enemy&&!k.hand){k.lie-=dt;if(k.lie<=0){k.lie=R(15,30);if(Math.random()<.6&&m==0&&P.away<=0&&T.mode=='patrol'){k.hand=true;k.snitch=100;k.fake=true;toast('✋ '+k.n+' raised their hand… they’re making something up!',2.5)}}}
+  const near=Math.hypot(k.x-P.x,k.y-P.y)<190;
+  if(m>0&&near&&!k.hand)k.snitch+=.18*k.rate*(k.enemy?1.5:k.friend?.4:1)*[0,1.4,.4,1][m]*dt;else k.snitch=Math.max(0,k.snitch-4*dt);
+  if(k.snitch>=100&&!k.hand){k.hand=true;toast('✋ '+k.n+' raised their hand!',2.5)}});
+ if(P.prog>=100){P.prog=100;end(true,'You filled in every answer. Mr. Grumbles never knew. Probably.');return}
+ if(S.time<=0){end(false,'Time’s up! You didn’t finish the test. Maybe study next time?');return}
+ if(P.pee>=100){P.pee=0;caught('You couldn’t hold it any longer. Accident in class!');return}
+ if(P.det>=100){P.det=0;toast('Mr. Grumbles caught you red-handed!',2);caught('Mr. Grumbles caught you cheating!')}
+ hud()}
+function hud(){$('pt').textContent=Math.floor(P.prog/2)+'/50 questions';$('pb').style.width=P.prog+'%';$('tm').textContent=Math.max(0,Math.ceil(S.time))+'s';$('st').textContent=(S.retry?'Last chance!':'No strikes')+' · Snitched: '+S.snitched+'/3';$('sb').style.width=P.det+'%';$('bb').style.width=P.pee+'%';$('r4').textContent=P.away>0?'away '+Math.ceil(P.away)+'s':P.pee>70?'URGENT!':'ask for a pass';$('r2').textContent=Math.ceil(P.sheet)+'% ink';$('r3').textContent=Math.ceil(P.phone)+'% battery';[1,2,3].forEach(m=>$('b'+m).classList.toggle('on',P.m==m))}
+function person(x,y,skin,hair,shirt,name,extra){g.fillStyle=shirt;g.beginPath();g.roundRect(x-13,y-2,26,26,8);g.fill();g.fillStyle=skin;g.beginPath();g.arc(x,y-12,13,0,7);g.fill();g.fillStyle=hair;g.beginPath();g.arc(x,y-17,13,Math.PI,0);g.fill();g.fillStyle='#222';g.fillRect(x-6,y-12,3,3);g.fillRect(x+3,y-12,3,3);if(name){g.fillStyle='#3a3a3a';g.font='bold 11px Trebuchet MS';g.textAlign='center';g.fillText(name,x,y+40)}}
+function draw(){g.clearRect(0,0,720,480);g.fillStyle='#ead9b0';g.fillRect(0,0,720,480);g.fillStyle='#e0cd9f';for(let i=0;i<480;i+=40)g.fillRect(0,i,720,2);
+ g.fillStyle='#2f5d50';g.fillRect(180,6,360,34);g.strokeStyle='#8b5a2b';g.lineWidth=4;g.strokeRect(180,6,360,34);g.fillStyle='#fff';g.font='bold 18px Trebuchet MS';g.textAlign='center';g.fillText('THE TEST  —  Chapter 7',360,30);
+ for(let i=0;i<12;i++){const x=DX(i%4),y=DY(Math.floor(i/4));g.fillStyle='#c98f55';g.beginPath();g.roundRect(x-34,y+12,68,32,6);g.fill();g.fillStyle='#e8b27a';g.fillRect(x-30,y+16,60,10)}
+ K.forEach(k=>{if(k.out>0){g.fillStyle='#8a7a5a';g.font='11px Trebuchet MS';g.textAlign='center';g.fillText('(in the hall)',k.x,k.y+8);return}
+  person(k.x,k.y,k.skin,k.hair,k.shirt,(k.enemy?'😠 ':k.friend?'🤝 ':'')+k.n);
+  if(k.cheating){g.font='18px serif';g.fillText('📄',k.x+22,k.y+22)}
+  if(k.snitch>2&&!k.hand){g.fillStyle='rgba(0,0,0,.2)';g.fillRect(k.x-16,k.y-38,32,5);g.fillStyle='#ff5d5d';g.fillRect(k.x-16,k.y-38,32*Math.min(1,k.snitch/100),5)}
+  if(k.hand){g.font='20px serif';g.fillText('✋',k.x+2,k.y-36)}});
+ if(S.mode=='chase'){}else if(P.away>0){g.fillStyle='#8a7a5a';g.font='12px Trebuchet MS';g.textAlign='center';g.fillText('🚽 (you’re in the bathroom)',P.x,P.y+8)}else{person(P.x,P.y,'#f6d2b0','#222','#ff7a59','YOU');g.strokeStyle='#ff7a59';g.lineWidth=2;g.beginPath();g.arc(P.x,P.y-4,30,0,7);g.stroke()}
+ if(P.m){g.font='20px serif';g.textAlign='center';g.fillText(['','👀','📝','📱'][P.m],P.x+24,P.y+24)}
+ // teacher cone
+ const range=S.mode=='chase'?0:150*(S.sus>0?1.35:1);g.fillStyle=P.det>40?'rgba(255,60,60,.28)':'rgba(255,230,80,.25)';g.beginPath();g.moveTo(T.x,T.y);g.arc(T.x,T.y,range,T.ang-.6,T.ang+.6);g.closePath();g.fill();
+ person(T.x,T.y,'#f1c7a0','#888','#6b4e9b','Mr. Grumbles');g.fillStyle='#d33';g.fillRect(T.x-2,T.y+2,4,14);g.strokeStyle='#222';g.lineWidth=1.5;g.strokeRect(T.x-8,T.y-15,6,5);g.strokeRect(T.x+2,T.y-15,6,5);
+ if(T.mode=='summon'||P.det>50){g.font='bold 22px Trebuchet MS';g.fillStyle='#e22';g.fillText('!',T.x,T.y-36)}if(S.mode=='chase')drawChase()}
+let last=0;function loop(t){const dt=Math.min(.05,(t-last)/1000||0);last=t;update(dt);draw();requestAnimationFrame(loop)}
+init();hud();requestAnimationFrame(loop);
+</script></body></html>
